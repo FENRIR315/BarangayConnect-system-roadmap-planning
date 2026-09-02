@@ -55,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
         setUser(null);
       }
-      window.location.href = window.location.pathname;
     });
 
     return () => subscription.unsubscribe();
