@@ -1,36 +1,195 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BarangayConnect 🏛️
 
-## Getting Started
+A full-stack **Barangay Management and Information System** — a white-label, client-presentable web platform that digitizes day-to-day barangay operations: resident records, document requests, appointments, complaints, incidents, announcements, payments, and more.
 
-First, run the development server:
+Built with **Next.js 16** (App Router), **TypeScript**, **Tailwind CSS v4**, and **Supabase** (PostgreSQL + Auth + Storage).
+
+---
+
+## ✨ Features
+
+### Admin Portal (`/admin`)
+- **Dashboard** — statistics with charts (population by age group, sex, purok; recent requests)
+- **Residents** — full CRUD, search, filter, deactivate
+- **Households** — record households, assign members
+- **Documents** — request processing workflow (approve → certificate generation → release), PDF certificate printing
+- **Appointments** — confirm, complete, cancel, no-show
+- **Complaints** — status workflow + resolution
+- **Incidents** — report barangay incidents and track status
+- **Announcements** — publish announcements with resident notifications
+- **Payments** — track barangay transactions
+- **Reports** — analytics and revenue summary
+- **Officials** — display current elected/appointed officials
+- **Audit Logs** — administrative activity trail
+- **Settings** — barangay profile configuration
+
+### Resident Portal (`/resident`)
+- Dashboard with quick actions and recent activity
+- **Profile** — self-service personal information
+- **Documents** — request and track barangay certificates
+- **Appointments** — book and manage appointments
+- **Complaints** — file and track complaints
+- **Announcements** — read the latest barangay news
+- **Notifications** — real-time updates
+
+### Public & Security
+- **QR Certificate Verification** (`/verify/[certificateNumber]`) — public verification of issued certificates
+- **Role-based access control** — `captain`, `secretary`, `treasurer`, `kagawad`, `staff`, `resident`
+- **Row Level Security (RLS)** at the database level
+- **Audit logging** using the service-role client (never exposed client-side)
+
+---
+
+## 🧱 Tech Stack
+
+| Layer      | Technology |
+|------------|-----------|
+| Framework  | Next.js 16 (App Router, Turbopack) |
+| Language   | TypeScript |
+| Styling    | Tailwind CSS v4 |
+| UI         | Radix UI primitives, lucide-react icons |
+| Forms      | React Hook Form + Zod validation |
+| Data       | Supabase (PostgreSQL), TanStack Query |
+| PDFs       | @react-pdf/renderer |
+| Charts     | Recharts |
+| Auth       | Supabase Auth (email/password) |
+
+---
+
+## 📁 Project Structure
+
+```
+barangay-connect/
+├── src/
+│   ├── app/
+│   │   ├── admin/          # Admin portal routes (dashboard, residents, documents, ...)
+│   │   ├── resident/       # Resident portal routes
+│   │   ├── (auth)/         # Login, signup, reset-password
+│   │   ├── api/            # API routes (e.g. document PDF print)
+│   │   ├── verify/         # Public certificate verification
+│   │   └── page.tsx        # Landing page
+│   ├── components/
+│   │   ├── ui/             # Reusable UI primitives
+│   │   └── layout/         # AdminSidebar, ResidentSidebar
+│   ├── lib/
+│   │   ├── supabase/       # client / server / admin clients
+│   │   ├── validation/     # Zod schemas
+│   │   └── pdf/            # certificate PDF templates
+│   ├── services/           # audit & notification helpers
+│   ├── hooks/              # auth context
+│   ├── types/              # TypeScript types & enums
+│   └── constants/          # puroks, roles, nav items
+├── supabase/migrations/    # SQL schema, RLS policies, seed data
+├── scripts/                # setup-admin & seed-demo
+└── .env.example
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 20+ (recommended)
+- A [Supabase](https://supabase.com) project (free tier is fine)
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Set up your environment
+
+Copy `.env.example` to `.env.local` and fill in your Supabase credentials:
+
+```bash
+cp .env.example .env.local
+```
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+> **Never commit your real `.env.local`** — it is gitignored. The service-role key grants full database access and must only be used server-side.
+
+### 3. Set up the database
+
+Go to **Supabase → SQL Editor** and run the migration files **in order**:
+
+1. `supabase/migrations/001_initial_schema.sql` — tables, indexes, triggers
+2. `supabase/migrations/002_rls_policies.sql` — row-level security
+3. `supabase/migrations/003_seed_data.sql` — lookup/reference data
+
+### 4. Create the first admin (captain)
+
+```bash
+npx tsx scripts/setup-admin.ts
+```
+
+This creates the admin login:
+
+```
+Email:    admin@barangayconnect.com
+Password: Admin@123456
+```
+
+> Change the password after first login. You can override the password with the `ADMIN_PASSWORD` env var.
+
+### 5. (Optional) Seed demo data
+
+```bash
+npx tsx scripts/seed-demo.ts
+```
+
+Seeds realistic demo data (40+ residents, households, document requests, appointments, complaints, incidents, announcements, and payments).
+
+### 6. Run the app
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Log in at `/login` with the admin credentials above.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🔑 Roles
 
-## Learn More
+| Role        | Access |
+|-------------|--------|
+| `captain`   | Full admin access |
+| `secretary` | Full admin access |
+| `treasurer` | Full admin access |
+| `kagawad`   | Full admin access |
+| `staff`     | Full admin access |
+| `resident`  | Resident portal only |
 
-To learn more about Next.js, take a look at the following resources:
+Role-based routing is enforced in `src/proxy.ts` (Next.js 16 `proxy()`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔒 Security Notes
 
-## Deploy on Vercel
+- **RLS** is enabled on every table with row-level policies.
+- The **service-role client** (`src/lib/supabase/admin.ts`) is used for audit logs and notifications and is **never** imported into client components.
+- Resident data access is scoped: residents read/update only their own records.
+- Certificate verification is intentionally public (read-only by certificate number).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🧰 Useful Commands
+
+```bash
+npm run dev      # start dev server
+npm run build    # production build
+npm run start    # start production server
+npm run lint     # ESLint
+```
+
+---
+
+## 📄 License
+
+This is a demo/presentable system. Deployment per-barangay customizations (name, municipality, captain) are driven by the env vars under "Barangay Info" for white-labeling.
