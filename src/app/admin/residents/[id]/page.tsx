@@ -145,7 +145,7 @@ function ResidentView() {
 
   const handleDeactivate = async () => {
     if (!confirm("Deactivate this resident? They will no longer appear as active.")) return;
-    await supabase.from("residents").update({ status: "deactivated" }).eq("id", params.id);
+    await supabase.from("residents").update({ residency_status: "inactive" }).eq("id", params.id);
     await supabase.from("audit_logs").insert({
       action: "resident_deactivated",
       module: "residents",
@@ -156,7 +156,7 @@ function ResidentView() {
   };
 
   const handleReactivate = async () => {
-    await supabase.from("residents").update({ status: "active" }).eq("id", params.id);
+    await supabase.from("residents").update({ residency_status: "active" }).eq("id", params.id);
     router.refresh();
     window.location.reload();
   };
@@ -259,7 +259,7 @@ function ResidentView() {
               <Button variant="outline" onClick={() => router.push(`?edit=1`)}>
                 <Pencil className="mr-2 h-4 w-4" /> Edit
               </Button>
-              {resident.status === "active" ? (
+              {resident.residency_status === "active" ? (
                 <Button variant="destructive" onClick={handleDeactivate}>
                   <UserX className="mr-2 h-4 w-4" /> Deactivate
                 </Button>
@@ -300,7 +300,7 @@ function ResidentView() {
             </h2>
             <p className="text-sm text-gray-500">{resident.purok}</p>
             <div className="mt-4">
-              <Badge className={getStatusColor(resident.status)}>{resident.status}</Badge>
+              <Badge className={getStatusColor(resident.residency_status)}>{resident.residency_status}</Badge>
             </div>
           </CardContent>
         </Card>

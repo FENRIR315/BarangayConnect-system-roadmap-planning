@@ -63,7 +63,7 @@ export default function ResidentsPage() {
       let query = supabase
         .from("residents")
         .select(
-          "id, first_name, middle_name, last_name, suffix, sex, dob, purok, address, contact_number, email, voter_status, residency_status, status, household_id",
+          "id, first_name, middle_name, last_name, suffix, sex, dob, purok, address, contact_number, email, voter_status, residency_status, household_id",
           { count: "exact" }
         )
         .order("last_name", { ascending: true })
@@ -76,7 +76,7 @@ export default function ResidentsPage() {
       }
 
       if (purok) query = query.eq("purok", purok);
-      if (status) query = query.eq("status", status);
+      if (status) query = query.eq("residency_status", status);
 
       const { data, count } = await query;
 
@@ -92,7 +92,7 @@ export default function ResidentsPage() {
   const handleDeactivate = async (id: string) => {
     if (!confirm("Are you sure you want to deactivate this resident?")) return;
     const supabase = createClient();
-    await supabase.from("residents").update({ status: "deactivated" }).eq("id", id);
+    await supabase.from("residents").update({ residency_status: "inactive" }).eq("id", id);
     router.refresh();
     window.location.reload();
   };
@@ -162,7 +162,7 @@ export default function ResidentsPage() {
               <option value="">All Statuses</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
-              <option value="deactivated">Deactivated</option>
+              <option value="transferred">Transferred</option>
             </select>
           </div>
         </CardContent>
@@ -228,8 +228,8 @@ export default function ResidentsPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(resident.status)}>
-                          {resident.status}
+                        <Badge className={getStatusColor(resident.residency_status)}>
+                          {resident.residency_status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -244,7 +244,7 @@ export default function ResidentsPage() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          {resident.status === "active" && (
+                          {resident.residency_status === "active" && (
                             <Button variant="ghost" size="icon" title="Deactivate"
                               onClick={() => handleDeactivate(resident.id)}
                             >
