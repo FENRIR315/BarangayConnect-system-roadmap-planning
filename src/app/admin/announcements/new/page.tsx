@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileUpload } from "@/components/ui/file-upload";
 
 type AnnouncementForm = z.infer<typeof announcementSchema>;
 const CATEGORIES = ["general", "emergency", "event", "community_program", "meeting", "public_notice"];
@@ -24,6 +25,7 @@ export default function NewAnnouncementPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const [attachment, setAttachment] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
@@ -50,6 +52,7 @@ export default function NewAnnouncementPage() {
         author_id: user?.id,
         status: data.status,
         is_pinned: isPinned,
+        attachment_url: attachment.length > 0 ? attachment[0] : null,
       })
       .select()
       .single();
@@ -148,6 +151,18 @@ export default function NewAnnouncementPage() {
             <div className="flex items-center gap-2">
               <input type="checkbox" id="is_pinned" className="h-4 w-4" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} />
               <Label htmlFor="is_pinned">Pin this announcement</Label>
+            </div>
+
+            <div className="space-y-2">
+              <FileUpload
+                folder="announcements/pending"
+                value={attachment}
+                onChange={(urls) => setAttachment(urls.slice(0, 1))}
+                multiple={false}
+                capture
+                label="Attachment"
+                hint="Scan or upload a notice photo, flyer, or PDF."
+              />
             </div>
 
             <div className="flex justify-end gap-2">

@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Pencil, Save, Loader2, UserX, Undo2 } from "lucide-react";
+import { ArrowLeft, Pencil, Save, Loader2, UserX, Undo2, FileText, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,6 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getStatusColor, formatDate, calculateAge } from "@/lib/utils";
 import { Puroks } from "@/constants";
+import { FileUpload } from "@/components/ui/file-upload";
+import { useAuth } from "@/hooks/useAuth";
+import { deleteFile } from "@/lib/upload";
 
 type ResidentForm = z.infer<typeof residentSchema>;
 
@@ -27,10 +30,15 @@ function ResidentView() {
   const isEditing = searchParams.get("edit") === "1";
   const [resident, setResident] = useState<any>(null);
   const [households, setHouseholds] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [newDocUrls, setNewDocUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [removingDoc, setRemovingDoc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
+  const { user } = useAuth();
 
   const form = useForm<ResidentForm>({
     resolver: zodResolver(residentSchema),
@@ -44,10 +52,18 @@ function ResidentView() {
         .eq("id", params.id)
         .single();
 
-      const { data: hh } = await supabase.from("households").select("*").eq("status", "active");
+      const [{ data: hh }, { data: docs }] = await Promise.all([
+        supabase.from("households").select("*").eq("status", "active"),
+        supabase
+          .from("resident_documents")
+          .select("*")
+          .eq("resident_id", params.id)
+          .order("created_at", { ascending: false }),
+      ]);
 
       setResident(res);
       setHouseholds(hh ?? []);
+      setDocuments(docs ?? []);
 
       if (res) {
         form.reset({
@@ -143,6 +159,48 @@ function ResidentView() {
     await supabase.from("residents").update({ status: "active" }).eq("id", params.id);
     router.refresh();
     window.location.reload();
+  };
+
+  const handleAttachDocuments = async () => {
+    if (newDocUrls.length === 0) return;
+    setFileError(null);
+    const { error: docError } = await supabase.from("resident_documents").insert(
+      newDocUrls.map((url) => ({
+        resident_id: params.id,
+        title: "Scanned document",
+        category: "other",
+        file_url: url,
+        uploaded_by: user?.id ?? null,
+      }))
+    );
+    if (docError) {
+      setFileError("Unable to save attached documents.");
+      return;
+    }
+    setNewDocUrls([]);
+    const { data: docs } = await supabase
+      .from("resident_documents")
+      .select("*")
+      .eq("resident_id", params.id)
+      .order("created_at", { ascending: false });
+    setDocuments(docs ?? []);
+  };
+
+  const handleRemoveDocument = async (docId: string) => {
+    if (!confirm("Remove this scanned document?")) return;
+    setRemovingDoc(docId);
+    setFileError(null);
+    const doc = documents.find((d) => d.id === docId);
+    const { error } = await supabase.from("resident_documents").delete().eq("id", docId);
+    if (!error && doc) {
+      try {
+        await deleteFile(supabase, doc.file_url);
+      } catch {
+        // ignore storage cleanup errors
+      }
+    }
+    setDocuments((prev) => prev.filter((d) => d.id !== docId));
+    setRemovingDoc(null);
   };
 
   if (loading) {
@@ -377,6 +435,85 @@ function ResidentView() {
           )}
         </div>
       </div>
+
+      {/* Scanned Documents */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Scanned Documents</CardTitle>
+          <p className="text-sm text-gray-500">
+            Attach scanned IDs, certificates, or other documents for this resident.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {documents.length === 0 && !isEditing && (
+            <p className="text-sm text-gray-400">No scanned documents attached yet.</p>
+          )}
+
+          {documents.length > 0 && (
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {documents.map((doc) => (
+                <li
+                  key={doc.id}
+                  className="flex items-center gap-3 rounded-md border border-gray-200 bg-white p-3"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-blue-100 text-blue-600">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <a
+                      href={doc.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate text-sm font-medium text-blue-600 hover:underline"
+                    >
+                      {doc.file_url.split("/").pop()?.split("?").shift() || "Document"}
+                    </a>
+                    <p className="text-xs capitalize text-gray-400">
+                      {doc.category} {doc.title !== "Scanned document" ? `- ${doc.title}` : ""}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    disabled={removingDoc === doc.id || !isEditing}
+                    onClick={() => handleRemoveDocument(doc.id)}
+                    aria-label="Remove document"
+                  >
+                    {removingDoc === doc.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {isEditing && (
+            <div className="space-y-3">
+              <FileUpload
+                folder={`residents/${params.id}`}
+                value={newDocUrls}
+                onChange={setNewDocUrls}
+                multiple
+                capture
+                label="Add documents"
+                hint="Scan or upload more documents (JPG, PNG, or PDF up to 10MB)."
+              />
+              {fileError && <p className="text-sm font-medium text-red-600">{fileError}</p>}
+              <Button
+                type="button"
+                onClick={handleAttachDocuments}
+                disabled={newDocUrls.length === 0}
+              >
+                Attach Documents
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExportExcelButton, PrintReportButton } from "@/components/export-buttons";
+import { PEOPLE } from "@/lib/export/definitions";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -56,9 +58,15 @@ export default function ComplaintsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Complaints</h1>
-        <p className="text-sm text-gray-500">Manage resident complaints</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Complaints</h1>
+          <p className="text-sm text-gray-500">Manage resident complaints</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportExcelButton definition={PEOPLE.complaints} />
+          <PrintReportButton definition={PEOPLE.complaints} />
+        </div>
       </div>
 
       <Card>

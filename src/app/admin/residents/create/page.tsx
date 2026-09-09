@@ -14,13 +14,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Puroks } from "@/constants";
+import { FileUpload } from "@/components/ui/file-upload";
+import { useAuth } from "@/hooks/useAuth";
 
 type ResidentForm = z.infer<typeof residentSchema>;
 
 export default function CreateResidentPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanDocs, setScanDocs] = useState<string[]>([]);
   const supabase = createClient();
 
   const {
@@ -74,6 +78,17 @@ export default function CreateResidentPage() {
       record_id: resident.id,
       new_values: data as Record<string, unknown>,
     });
+
+    if (scanDocs.length > 0) {
+      const docRows = scanDocs.map((url) => ({
+        resident_id: resident.id,
+        title: "Scanned document",
+        category: "other",
+        file_url: url,
+        uploaded_by: user?.id ?? null,
+      }));
+      await supabase.from("resident_documents").insert(docRows);
+    }
 
     setLoading(false);
     router.push(`/admin/residents/${resident.id}`);
@@ -232,6 +247,27 @@ export default function CreateResidentPage() {
                   <Input id="emergency_contact_phone" {...register("emergency_contact_phone")} />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Scanned Documents */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Scanned Documents</CardTitle>
+              <p className="text-sm text-gray-500">
+                Scan and attach supporting documents like a government ID or birth certificate.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <FileUpload
+                folder="residents/pending"
+                value={scanDocs}
+                onChange={setScanDocs}
+                multiple
+                capture
+                label="Attachments"
+                hint="Use your scanner, phone camera, or paste an image directly."
+              />
             </CardContent>
           </Card>
 

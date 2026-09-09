@@ -28,6 +28,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ExportExcelButton, PrintReportButton } from "@/components/export-buttons";
+import { PEOPLE } from "@/lib/export/definitions";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDate, getStatusColor } from "@/lib/utils";
 
@@ -109,12 +111,16 @@ export default function ResidentsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Residents</h1>
           <p className="text-sm text-gray-500">Manage all barangay residents</p>
         </div>
-        <Link href="/admin/residents/create">
-          <Button>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Resident
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportExcelButton definition={PEOPLE.residents} />
+          <PrintReportButton definition={PEOPLE.residents} />
+          <Link href="/admin/residents/create">
+            <Button>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Resident
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card>

@@ -13,6 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExportExcelButton, PrintReportButton } from "@/components/export-buttons";
+import { PEOPLE } from "@/lib/export/definitions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -42,9 +44,15 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-        <p className="text-sm text-gray-500">Track barangay payment transactions</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
+          <p className="text-sm text-gray-500">Track barangay payment transactions</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportExcelButton definition={PEOPLE.payments} />
+          <PrintReportButton definition={PEOPLE.payments} />
+        </div>
       </div>
 
       <Card>

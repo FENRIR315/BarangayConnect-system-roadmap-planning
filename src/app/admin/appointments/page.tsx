@@ -15,6 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExportExcelButton, PrintReportButton } from "@/components/export-buttons";
+import { PEOPLE } from "@/lib/export/definitions";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -59,9 +61,15 @@ export default function AdminAppointmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
-        <p className="text-sm text-gray-500">Manage resident appointments</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
+          <p className="text-sm text-gray-500">Manage resident appointments</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportExcelButton definition={PEOPLE.appointments} />
+          <PrintReportButton definition={PEOPLE.appointments} />
+        </div>
       </div>
 
       <Card>

@@ -16,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExportExcelButton, PrintReportButton } from "@/components/export-buttons";
+import { PEOPLE } from "@/lib/export/definitions";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -70,11 +72,15 @@ export default function HouseholdsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Households</h1>
           <p className="text-sm text-gray-500">Manage households and their members</p>
         </div>
-        <Link href="/admin/households/create">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" /> Add Household
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportExcelButton definition={PEOPLE.households} />
+          <PrintReportButton definition={PEOPLE.households} />
+          <Link href="/admin/households/create">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> Add Household
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card>

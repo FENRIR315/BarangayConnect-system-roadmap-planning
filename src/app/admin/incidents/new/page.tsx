@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileUpload } from "@/components/ui/file-upload";
 
 type IncidentForm = z.infer<typeof incidentSchema>;
 
@@ -23,6 +24,7 @@ export default function NewIncidentPage() {
   const { user } = useAuth();
   const [types, setTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
@@ -62,6 +64,7 @@ export default function NewIncidentPage() {
         status: "open",
         people_involved: data.people_involved?.split(",").map((s) => s.trim()).filter(Boolean) || [],
         reported_by: user?.id,
+        attachments,
       })
       .select()
       .single();
@@ -150,6 +153,18 @@ export default function NewIncidentPage() {
               <div className="space-y-2">
                 <Label>People Involved (comma separated)</Label>
                 <Input placeholder="Juan Dela Cruz, Maria Santos" {...register("people_involved")} />
+              </div>
+
+              <div className="space-y-2">
+                <FileUpload
+                  folder="incidents/pending"
+                  value={attachments}
+                  onChange={setAttachments}
+                  multiple
+                  capture
+                  label="Attachments"
+                  hint="Scan or upload photos/evidence (JPG, PNG, or PDF up to 10MB)."
+                />
               </div>
 
               <div className="flex justify-end gap-2">

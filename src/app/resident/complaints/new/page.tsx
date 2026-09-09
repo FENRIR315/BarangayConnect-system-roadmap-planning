@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileUpload } from "@/components/ui/file-upload";
 
 type ComplaintForm = z.infer<typeof complaintSchema>;
 
@@ -23,6 +24,7 @@ export default function NewComplaintPage() {
   const { user } = useAuth();
   const [types, setTypes] = useState<any[]>([]);
   const [residentId, setResidentId] = useState<string | null>(null);
+  const [evidence, setEvidence] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
@@ -72,6 +74,7 @@ export default function NewComplaintPage() {
         date_of_incident: data.date_of_incident || null,
         time_of_incident: data.time_of_incident || null,
         status: "submitted",
+        evidence_urls: evidence,
       })
       .select()
       .single();
@@ -148,6 +151,18 @@ export default function NewComplaintPage() {
                   <Label>Time of Incident</Label>
                   <Input type="time" {...register("time_of_incident")} />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <FileUpload
+                  folder={`me/${user?.id ?? "pending"}`}
+                  value={evidence}
+                  onChange={setEvidence}
+                  multiple
+                  capture
+                  label="Evidence / Photos"
+                  hint="Scan or upload evidence photos or documents (JPG, PNG, or PDF up to 10MB)."
+                />
               </div>
 
               <div className="flex justify-end gap-2">

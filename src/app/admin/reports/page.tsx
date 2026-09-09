@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BarChart3, Users, FileText, AlertTriangle, Calendar, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExportAllButton } from "@/components/export-buttons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReportsPage() {
@@ -52,9 +53,12 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-        <p className="text-sm text-gray-500">Overview of barangay data</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
+          <p className="text-sm text-gray-500">Overview of barangay data</p>
+        </div>
+        <ExportAllButton />
       </div>
 
       {loading ? (

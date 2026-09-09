@@ -10,15 +10,16 @@ Built with **Next.js 16** (App Router), **TypeScript**, **Tailwind CSS v4**, and
 
 ### Admin Portal (`/admin`)
 - **Dashboard** — statistics with charts (population by age group, sex, purok; recent requests)
-- **Residents** — full CRUD, search, filter, deactivate
+- **Residents** — full CRUD, search, filter, deactivate; **scan & attach documents/photos** to a resident record (scanner, camera, or upload)
 - **Households** — record households, assign members
 - **Documents** — request processing workflow (approve → certificate generation → release), PDF certificate printing
 - **Appointments** — confirm, complete, cancel, no-show
-- **Complaints** — status workflow + resolution
-- **Incidents** — report barangay incidents and track status
-- **Announcements** — publish announcements with resident notifications
+- **Complaints** — status workflow + resolution (residents can attach photo evidence)
+- **Incidents** — report barangay incidents (with attached photos/scans) and track status
+- **Announcements** — publish announcements (with optional attachment) and notify residents
 - **Payments** — track barangay transactions
-- **Reports** — analytics and revenue summary
+- **Reports** — analytics and revenue summary, **Export All** Excel workbook (one sheet per module)
+- **Excel & PDF exports** — every list page (Residents, Households, Payments, Documents, Complaints, Incidents, Announcements, Appointments, Officials) offers **Export Excel** (print-ready .xlsx) and **Print Report** (PDF) buttons
 - **Officials** — display current elected/appointed officials
 - **Audit Logs** — administrative activity trail
 - **Settings** — barangay profile configuration
@@ -28,7 +29,7 @@ Built with **Next.js 16** (App Router), **TypeScript**, **Tailwind CSS v4**, and
 - **Profile** — self-service personal information
 - **Documents** — request and track barangay certificates
 - **Appointments** — book and manage appointments
-- **Complaints** — file and track complaints
+- **Complaints** — file and track complaints, attach photo evidence
 - **Announcements** — read the latest barangay news
 - **Notifications** — real-time updates
 
@@ -49,8 +50,9 @@ Built with **Next.js 16** (App Router), **TypeScript**, **Tailwind CSS v4**, and
 | Styling    | Tailwind CSS v4 |
 | UI         | Radix UI primitives, lucide-react icons |
 | Forms      | React Hook Form + Zod validation |
-| Data       | Supabase (PostgreSQL), TanStack Query |
-| PDFs       | @react-pdf/renderer |
+| Data       | Supabase (PostgreSQL, Auth, Storage), TanStack Query |
+| PDFs       | @react-pdf/renderer, jsPDF + jspdf-autotable |
+| Excel      | SheetJS (xlsx) |
 | Charts     | Recharts |
 | Auth       | Supabase Auth (email/password) |
 
@@ -69,17 +71,20 @@ barangay-connect/
 │   │   ├── verify/         # Public certificate verification
 │   │   └── page.tsx        # Landing page
 │   ├── components/
-│   │   ├── ui/             # Reusable UI primitives
-│   │   └── layout/         # AdminSidebar, ResidentSidebar
+│   │   ├── ui/             # Reusable UI primitives (incl. FileUpload scanner)
+│   │   ├── layout/         # AdminSidebar, ResidentSidebar
+│   │   └── export-buttons.tsx  # Excel / PDF / Export-All buttons
 │   ├── lib/
 │   │   ├── supabase/       # client / server / admin clients
 │   │   ├── validation/     # Zod schemas
-│   │   └── pdf/            # certificate PDF templates
+│   │   ├── pdf/            # certificate PDF templates
+│   │   ├── upload.ts       # Supabase Storage upload helpers
+│   │   └── export/         # export definitions, Excel & PDF builders
 │   ├── services/           # audit & notification helpers
 │   ├── hooks/              # auth context
 │   ├── types/              # TypeScript types & enums
 │   └── constants/          # puroks, roles, nav items
-├── supabase/migrations/    # SQL schema, RLS policies, seed data
+├── supabase/migrations/    # SQL schema, RLS policies, storage & seed data
 ├── scripts/                # setup-admin & seed-demo
 └── .env.example
 ```
@@ -121,6 +126,9 @@ Go to **Supabase → SQL Editor** and run the migration files **in order**:
 1. `supabase/migrations/001_initial_schema.sql` — tables, indexes, triggers
 2. `supabase/migrations/002_rls_policies.sql` — row-level security
 3. `supabase/migrations/003_seed_data.sql` — lookup/reference data
+4. `supabase/migrations/004_scan_uploads.sql` — storage bucket + resident document scans
+
+> Migration 004 creates the public `barangay-attachments` Storage bucket (10 MB max, JPG/PNG/WebP/PDF) and the `resident_documents` table with RLS.
 
 ### 4. Create the first admin (captain)
 
@@ -174,6 +182,7 @@ Role-based routing is enforced in `src/proxy.ts` (Next.js 16 `proxy()`).
 
 - **RLS** is enabled on every table with row-level policies.
 - The **service-role client** (`src/lib/supabase/admin.ts`) is used for audit logs and notifications and is **never** imported into client components.
+- **Supabase Storage** buckets are protected by RLS (public read, authenticated staff write/delete); uploads are validated (file type + 10 MB size limit) before they reach storage.
 - Resident data access is scoped: residents read/update only their own records.
 - Certificate verification is intentionally public (read-only by certificate number).
 
