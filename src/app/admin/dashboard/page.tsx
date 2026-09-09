@@ -65,9 +65,7 @@ export default function AdminDashboardPage() {
         complaintsRes,
         incidentsRes,
         recentReqRes,
-        purokRes,
-        sexRes,
-        ageRes,
+        populationRes,
       ] = await Promise.all([
         supabase.from("residents").select("id", { count: "exact", head: true }),
         supabase.from("households").select("id", { count: "exact", head: true }),
@@ -79,9 +77,7 @@ export default function AdminDashboardPage() {
           .select("*, resident:residents(first_name, last_name), document_type:document_types(name)")
           .order("created_at", { ascending: false })
           .limit(5),
-        supabase.from("residents").select("purok, count").order("purok"),
-        supabase.from("residents").select("sex, count"),
-        supabase.from("residents").select("age"),
+        supabase.from("residents").select("dob, sex, purok"),
       ]);
 
       setStats({
@@ -94,25 +90,47 @@ export default function AdminDashboardPage() {
       });
 
       setRecentRequests(recentReqRes.data ?? []);
-      setPopulationByPurok(purokRes.data ?? []);
-      setSexDistribution(sexRes.data ?? []);
 
-      if (ageRes.data) {
-        const groups = [
-          { name: "0-17", value: 0 },
-          { name: "18-35", value: 0 },
-          { name: "36-60", value: 0 },
-          { name: "61+", value: 0 },
-        ];
-        ageRes.data.forEach((r: any) => {
-          const age = r.age ?? 0;
-          if (age < 18) groups[0].value++;
-          else if (age <= 35) groups[1].value++;
-          else if (age <= 60) groups[2].value++;
-          else groups[3].value++;
-        });
-        setAgeGroups(groups);
-      }
+      const residents = populationRes.data ?? [];
+      const age = (dob: string) => {
+        const d = new Date(dob);
+        const now = new Date();
+        let years = now.getFullYear() - d.getFullYear();
+        const m = now.getMonth() - d.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < d.getDate())) years--;
+        return years;
+      };
+
+      const ageGroups = [
+        { name: "0-17", value: 0 },
+        { name: "18-35", value: 0 },
+        { name: "36-60", value: 0 },
+        { name: "61+", value: 0 },
+      ];
+      const purokMap: Record<string, number> = {};
+      const sexMap: Record<"male" | "female", number> = { male: 0, female: 0 };
+
+      residents.forEach((r: any) => {
+        const a = r.dob ? age(r.dob) : 0;
+        if (a < 18) ageGroups[0].value++;
+        else if (a <= 35) ageGroups[1].value++;
+        else if (a <= 60) ageGroups[2].value++;
+        else ageGroups[3].value++;
+
+        const s: "male" | "female" = r.sex === "male" ? "male" : "female";
+        sexMap[s]++;
+
+        const p = r.purok || "Unassigned";
+        purokMap[p] = (purokMap[p] ?? 0) + 1;
+      });
+
+      setAgeGroups(ageGroups);
+      setSexDistribution(Object.entries(sexMap).map(([sex, count]) => ({ name: sex === "male" ? "Male" : "Female", count })));
+      setPopulationByPurok(
+        Object.entries(purokMap)
+          .map(([purok, count]) => ({ purok, count }))
+          .sort((a, b) => b.count - a.count)
+      );
 
       setLoading(false);
     };
@@ -213,7 +231,7 @@ export default function AdminDashboardPage() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={sexDistribution.map((d) => ({ ...d, name: d.sex === "male" ? "Male" : "Female" }))}
+                  data={sexDistribution}
                   dataKey="count"
                   nameKey="name"
                   cx="50%"
