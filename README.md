@@ -127,8 +127,10 @@ Go to **Supabase → SQL Editor** and run the migration files **in order**:
 2. `supabase/migrations/002_rls_policies.sql` — row-level security
 3. `supabase/migrations/003_seed_data.sql` — lookup/reference data
 4. `supabase/migrations/004_scan_uploads.sql` — storage bucket + resident document scans
+5. `supabase/migrations/005_seed_sillawit.sql` — **optional** Sillawit presentation/demo dataset (idempotent)
 
 > Migration 004 creates the public `barangay-attachments` Storage bucket (10 MB max, JPG/PNG/WebP/PDF) and the `resident_documents` table with RLS.
+> Migration 005 seeds a complete demo dataset for the **Sillawit** barangay (Cauayan City, Isabela): 41 residents, 16 households, 25 household members, 10 officials, 18 document requests, 5 issued certificates, 12 appointments, 9 complaints, 7 incidents, 6 announcements, 12 payments, and notifications. It is safe to re-run.
 
 ### 4. Create the first admin (captain)
 
@@ -147,11 +149,13 @@ Password: Admin@123456
 
 ### 5. (Optional) Seed demo data
 
+Run the **`005_seed_sillawit.sql`** migration (Sillawit-themed, reproducible) **or** the script:
+
 ```bash
 npx tsx scripts/seed-demo.ts
 ```
 
-Seeds realistic demo data (40+ residents, households, document requests, appointments, complaints, incidents, announcements, and payments).
+Seeds realistic demo data (41+ residents, households, document requests, appointments, complaints, incidents, announcements, and payments).
 
 ### 6. Run the app
 
