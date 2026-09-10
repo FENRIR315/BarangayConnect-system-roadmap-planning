@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/client";
 
 export async function createNotification({
   userId,
@@ -13,8 +13,8 @@ export async function createNotification({
   type?: string;
   link?: string;
 }) {
-  const admin = createAdminClient();
-  const { error } = await admin.from("notifications").insert({
+  const client = createClient();
+  const { error } = await client.from("notifications").insert({
     user_id: userId,
     title,
     message,
@@ -36,7 +36,7 @@ export async function notifyMultipleUsers(
   type?: string,
   link?: string
 ) {
-  const admin = createAdminClient();
+  const client = createClient();
   const notifications = userIds.map((uid) => ({
     user_id: uid,
     title,
@@ -45,7 +45,7 @@ export async function notifyMultipleUsers(
     link: link || null,
   }));
 
-  const { error } = await admin.from("notifications").insert(notifications);
+  const { error } = await client.from("notifications").insert(notifications);
 
   if (error) {
     console.error("Bulk notification error:", error);

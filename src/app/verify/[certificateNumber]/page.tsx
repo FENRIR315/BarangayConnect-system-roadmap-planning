@@ -18,7 +18,9 @@ function VerificationPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("documents")
-        .select("*")
+        .select(
+          "certificate_number, resident_name, verification_status, issued_at, document_type:document_types(name)"
+        )
         .eq("certificate_number", params.certificateNumber)
         .single();
 
@@ -28,7 +30,7 @@ function VerificationPage() {
       }
 
       setDoc(data);
-      setStatus(data.status === "valid" ? "valid" : "invalid");
+      setStatus(data.verification_status === "valid" ? "valid" : "invalid");
     };
 
     fetchDoc();
@@ -68,7 +70,7 @@ function VerificationPage() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500">Document</p>
-                  <p className="text-sm font-semibold text-gray-900">{doc.document_type}</p>
+                  <p className="text-sm font-semibold text-gray-900">{doc.document_type?.name}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500">Resident</p>

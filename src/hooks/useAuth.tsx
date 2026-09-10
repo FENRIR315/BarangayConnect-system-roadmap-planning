@@ -1,12 +1,11 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { createClient, type LocalUser } from "@/lib/supabase/client";
 import { UserRole } from "@/types/enums";
 
 interface AuthState {
-  user: User | null;
+  user: LocalUser | null;
   profile: { id: string; role: UserRole; first_name: string; last_name: string; email: string; avatar_url: string | null } | null;
   loading: boolean;
   isAdmin: boolean;
@@ -24,7 +23,7 @@ const AuthContext = createContext<AuthState>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<LocalUser | null>(null);
   const [profile, setProfile] = useState<AuthState["profile"]>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +56,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchProfile = async (supabase: any, userId: string) => {

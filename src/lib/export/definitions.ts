@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { LocalSupabase } from "@/lib/supabase/client";
 
 export interface ExportColumn {
   header: string;
@@ -11,7 +11,7 @@ export interface ExportDefinition {
   filename: string;
   title: string;
   columns: ExportColumn[];
-  fetch: (supabase: SupabaseClient) => Promise<any[]>;
+  fetch: (supabase: LocalSupabase) => Promise<any[]>;
   /** optional summary line(s) rendered at the bottom of the PDF report */
   totals?: (rows: any[]) => { label: string; value: string }[];
 }

@@ -25,7 +25,7 @@ export default function ReportsPage() {
           supabase.from("payments").select("amount"),
         ]);
 
-      const totalPayments = (paymentsData.data ?? []).reduce((sum, p: any) => sum + Number(p.amount || 0), 0);
+      const totalPayments = (paymentsData.data ?? []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
 
       setStats({
         residents: residentsData.count ?? 0,

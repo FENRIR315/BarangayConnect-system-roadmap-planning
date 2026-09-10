@@ -32,7 +32,7 @@ export default function OfficialsPage() {
         .select("*, resident:residents(first_name, middle_name, last_name, suffix)")
         .eq("is_active", true);
 
-      const sorted = (data ?? []).sort((a, b) => {
+      const sorted = (data ?? []).sort((a: any, b: any) => {
         const ra = roleOrder.indexOf(a.position) === -1 ? 99 : roleOrder.indexOf(a.position);
         const rb = roleOrder.indexOf(b.position) === -1 ? 99 : roleOrder.indexOf(b.position);
         return ra - rb;

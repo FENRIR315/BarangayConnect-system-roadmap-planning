@@ -1,14 +1,13 @@
-import { createClient } from "@supabase/supabase-js";
+import { runQuery } from "@/lib/local/sql";
+import { QueryChain } from "@/lib/local/builder";
 
+/**
+ * Privileged client for server-side work (print/export routes, audits,
+ * notifications). Executes directly against local PostgreSQL — no service
+ * role key required in offline mode.
+ */
 export function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
+  return {
+    from: (table: string) => new QueryChain(table, runQuery),
+  };
 }

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { LocalSupabase } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, ALLOWED_DOCUMENT_TYPES } from "@/constants";
 
 export interface UploadedFile {
@@ -32,7 +32,7 @@ export function validateFile(file: File): string | null {
 }
 
 export async function uploadFile(
-  supabase: SupabaseClient,
+  supabase: LocalSupabase,
   file: File,
   folder: string
 ): Promise<UploadedFile> {
@@ -58,7 +58,7 @@ export async function uploadFile(
 }
 
 export async function uploadFiles(
-  supabase: SupabaseClient,
+  supabase: LocalSupabase,
   files: File[],
   folder: string
 ): Promise<UploadedFile[]> {
@@ -70,18 +70,22 @@ export async function uploadFiles(
 }
 
 /** Given a public URL value, return the storage path (or null if not ours). */
-export function storagePathFromUrl(value: string): string | null {
-  const marker = `/storage/v1/object/public/${BUCKET}/`;
-  const idx = value.indexOf(marker);
-  if (idx === -1) return null;
-  return value.slice(idx + marker.length);
+export function storagePathFromUrl(value: string, bucket: string = BUCKET): string | null {
+  const markers = [`/storage/v1/object/public/${bucket}/`, `/api/local/files/${bucket}/`];
+  for (const marker of markers) {
+    const idx = value.indexOf(marker);
+    if (idx !== -1) {
+      return decodeURIComponent(value.slice(idx + marker.length));
+    }
+  }
+  return null;
 }
 
 export async function deleteFile(
-  supabase: SupabaseClient,
+  supabase: LocalSupabase,
   urlOrPath: string
 ): Promise<void> {
-  const path = urlOrPath.includes("/storage/v1/object/public/")
+  const path = urlOrPath.includes("/storage/v1/object/public/") || urlOrPath.includes("/api/local/files/")
     ? storagePathFromUrl(urlOrPath)
     : urlOrPath;
   if (!path) return;

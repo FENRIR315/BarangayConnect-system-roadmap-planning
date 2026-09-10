@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Building2, Loader2 } from "lucide-react";
@@ -12,15 +12,39 @@ import { loginSchema } from "@/lib/validation/schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import AppShellSkeleton from "@/components/skeletons/AppShellSkeleton";
 
 type LoginForm = z.infer<typeof loginSchema>;
+
+const SPLASH_MS = 1500;
+const SKELETON_AT = 650;
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [splash, setSplash] = useState<{ name: string | null; go: string; role: "admin" | "resident" } | null>(null);
+  const [skeleton, setSkeleton] = useState(false);
+  const splashTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    return () => {
+      if (splashTimer.current) clearTimeout(splashTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!splash) return;
+    setSkeleton(false);
+    const skeletonTimer = setTimeout(() => setSkeleton(true), SKELETON_AT);
+    splashTimer.current = setTimeout(() => {
+      clearTimeout(skeletonTimer);
+      router.push(splash.go);
+      router.refresh();
+    }, SPLASH_MS);
+  }, [splash, router]);
 
   const {
     register,
@@ -47,18 +71,39 @@ function LoginForm() {
 
     const { data: profile } = await supabase
       .from("users")
-      .select("role")
+      .select("role, first_name")
       .eq("email", data.email)
       .single();
 
     const redirectTo = searchParams.get("redirectedFrom");
-    if (redirectTo) {
-      router.push(redirectTo);
-    } else {
-      router.push(profile?.role === "resident" ? "/resident/dashboard" : "/admin/dashboard");
-    }
-    router.refresh();
+    const go = redirectTo ?? (profile?.role === "resident" ? "/resident/dashboard" : "/admin/dashboard");
+    setSplash({ name: profile?.first_name ?? null, go, role: profile?.role === "resident" ? "resident" : "admin" });
   };
+
+  if (splash) {
+    if (skeleton) {
+      return (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <AppShellSkeleton variant={splash.role} />
+        </div>
+      );
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 splash-icon">
+          <Building2 className="h-9 w-9 text-white" />
+        </div>
+        <h2 className="mt-6 text-2xl font-bold text-gray-900 splash-rise">
+          Welcome back{splash.name ? `, ${splash.name}` : ""}!
+        </h2>
+        <p className="mt-1 text-sm text-gray-500 splash-rise" style={{ animationDelay: "0.15s" }}>
+          We&apos;re happy to see you again
+        </p>
+        <Loader2 className="mt-6 h-5 w-5 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">

@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/client";
 
 export async function logAudit({
   userId,
@@ -15,8 +15,8 @@ export async function logAudit({
   oldValues?: Record<string, unknown> | null;
   newValues?: Record<string, unknown> | null;
 }) {
-  const admin = createAdminClient();
-  const { error } = await admin.from("audit_logs").insert({
+  const client = createClient();
+  const { error } = await client.from("audit_logs").insert({
     user_id: userId,
     action,
     module,

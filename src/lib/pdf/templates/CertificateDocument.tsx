@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import {
   Document,
@@ -124,6 +122,7 @@ interface CertificateDocProps {
   dateIssued: string;
   captainName: string;
   logoUrl?: string | null;
+  philippinesLogoUrl?: string | null;
 }
 
 export function CertificateDocument({
@@ -138,6 +137,7 @@ export function CertificateDocument({
   dateIssued,
   captainName,
   logoUrl,
+  philippinesLogoUrl,
 }: CertificateDocProps) {
   return (
     <Document>
@@ -157,7 +157,7 @@ export function CertificateDocument({
             <Text style={styles.barangayName}>{barangayName}</Text>
             <Text style={styles.office}>BARANGAY HALL</Text>
           </View>
-          <Image style={styles.logo} src="/logos/philippines.png" />
+          <Image style={styles.logo} src={philippinesLogoUrl || "/logos/philippines.png"} />
         </View>
 
         <View style={styles.line} />
