@@ -66,7 +66,7 @@ barangay-connect/
 │   ├── app/
 │   │   ├── admin/          # Admin portal routes (dashboard, residents, documents, ...)
 │   │   ├── resident/       # Resident portal routes
-│   │   ├── (auth)/         # Login, signup, reset-password
+│   │   ├── (auth)/         # Login, reset-password
 │   │   ├── api/            # API routes (e.g. document PDF print)
 │   │   ├── verify/         # Public certificate verification
 │   │   └── page.tsx        # Landing page
@@ -191,6 +191,25 @@ Role-based routing is enforced in `src/proxy.ts` (Next.js 16 `proxy()`).
 - **Supabase Storage** buckets are protected by RLS (public read, authenticated staff write/delete); uploads are validated (file type + 10 MB size limit) before they reach storage.
 - Resident data access is scoped: residents read/update only their own records.
 - Certificate verification is intentionally public (read-only by certificate number).
+
+---
+
+## ✉️ Resident Accounts & Email Notifications
+
+- **There is no public signup.** Accounts are created by the barangay office — like a school issuing student accounts (no email verification needed).
+- The office creates a resident's login in two places:
+  - **Admin → Residents → Add New Resident**: the *Login Account* section creates the resident record *and* their login (email + password) in one step.
+  - **Admin → Residents → [Resident]**: the *Create Login* button issues a login for an existing resident record (e.g. records added before accounts existed).
+- The resident then signs in at `/login` with the email/password the barangay gave them. Passwords are hashed (bcrypt) on the server.
+- **Optional email notifications** are sent via **Gmail SMTP** using an **App Password** (never the account's real password). Configure `SMTP_USER` / `SMTP_PASS` in `.env.local`:
+  1. Sign in to the Gmail → Google Account → **Security → 2-Step Verification → ON**.
+  2. **Security → App passwords** → name it, copy the 16-char code into `SMTP_PASS`.
+- **Offline mode:** with an empty/invalid `SMTP_PASS`, no emails are sent — everything still works, the office just relays notices by phone/word of mouth.
+- **Notification emails** (queued in `public.email_queue`, retried up to 5×) are sent when:
+  - a new **announcement** is published (to all residents with accounts, including officers),
+  - a **document request** is approved/ready/issued/rejected,
+  - an **appointment** is confirmed/completed/cancelled.
+- Set `NEXT_PUBLIC_APP_URL` to the public URL (tunnel or domain) so links in email footer open the right address.
 
 ---
 

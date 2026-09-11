@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Pencil, Save, Loader2, UserX, Undo2, FileText, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Save, Loader2, UserX, Undo2, FileText, Trash2, KeyRound, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,6 +37,13 @@ function ResidentView() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [removingDoc, setRemovingDoc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [acctEmail, setAcctEmail] = useState("");
+  const [acctPassword, setAcctPassword] = useState("");
+  const [acctConfirm, setAcctConfirm] = useState("");
+  const [acctError, setAcctError] = useState<string | null>(null);
+  const [creatingAcct, setCreatingAcct] = useState(false);
+  const [accountMsg, setAccountMsg] = useState<string | null>(null);
   const supabase = createClient();
   const { user } = useAuth();
 
@@ -161,6 +168,53 @@ function ResidentView() {
     window.location.reload();
   };
 
+  const openAccountModal = () => {
+    setAcctEmail(resident?.email ?? "");
+    setAcctPassword("");
+    setAcctConfirm("");
+    setAcctError(null);
+    setShowAccountModal(true);
+  };
+
+  const handleCreateAccount = async () => {
+    setCreatingAcct(true);
+    setAcctError(null);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(acctEmail.trim())) {
+      setAcctError("Enter a valid email address.");
+      setCreatingAcct(false);
+      return;
+    }
+    if (acctPassword.length < 8) {
+      setAcctError("Password must be at least 8 characters.");
+      setCreatingAcct(false);
+      return;
+    }
+    if (acctPassword !== acctConfirm) {
+      setAcctError("Passwords do not match.");
+      setCreatingAcct(false);
+      return;
+    }
+    const resp = await fetch("/api/local/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create-account",
+        email: acctEmail.trim(),
+        password: acctPassword,
+        resident_id: params.id,
+      }),
+    });
+    const body = await resp.json();
+    setCreatingAcct(false);
+    if (!resp.ok) {
+      setAcctError(body?.error?.message ?? "Login account creation failed.");
+      return;
+    }
+    setShowAccountModal(false);
+    setAccountMsg(`Login account created for ${acctEmail.trim()}.`);
+    window.location.reload();
+  };
+
   const handleAttachDocuments = async () => {
     if (newDocUrls.length === 0) return;
     setFileError(null);
@@ -236,6 +290,10 @@ function ResidentView() {
 
   return (
     <div className="space-y-6">
+      {accountMsg && (
+        <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">{accountMsg}</div>
+      )}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <Link href="/admin/residents">
@@ -256,6 +314,15 @@ function ResidentView() {
         <div className="flex gap-2">
           {!isEditing && (
             <>
+              {resident.user_id ? (
+                <Button variant="outline" disabled title="This resident already has a login account">
+                  <KeyRound className="mr-2 h-4 w-4" /> Has Account
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={openAccountModal}>
+                  <KeyRound className="mr-2 h-4 w-4" /> Create Login
+                </Button>
+              )}
               <Button variant="outline" onClick={() => router.push(`?edit=1`)}>
                 <Pencil className="mr-2 h-4 w-4" /> Edit
               </Button>
@@ -514,6 +581,59 @@ function ResidentView() {
           )}
         </CardContent>
       </Card>
+
+      {showAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Create Login Account</h2>
+              <button type="button" onClick={() => setShowAccountModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm text-gray-500">
+              The barangay provides the credentials — the resident signs in with these at the portal. No email
+              verification needed.
+            </p>
+            {acctError && <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{acctError}</div>}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="acct_email">Account Email *</Label>
+                <Input id="acct_email" type="email" value={acctEmail} onChange={(e) => setAcctEmail(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="acct_password">Password *</Label>
+                <Input
+                  id="acct_password"
+                  type="password"
+                  placeholder="At least 8 characters"
+                  value={acctPassword}
+                  onChange={(e) => setAcctPassword(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="acct_confirm">Confirm Password *</Label>
+                <Input
+                  id="acct_confirm"
+                  type="password"
+                  placeholder="Repeat the password"
+                  value={acctConfirm}
+                  onChange={(e) => setAcctConfirm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowAccountModal(false)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleCreateAccount} disabled={creatingAcct}>
+                {creatingAcct ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+                {creatingAcct ? "Creating..." : "Create Account"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

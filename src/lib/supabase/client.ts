@@ -87,18 +87,6 @@ export function createClient() {
         if (res.data?.user) notify("SIGNED_IN", res.data.user);
         return res;
       },
-      async signUp(input: { email: string; password: string; options?: { data?: Record<string, unknown> } }) {
-        const res = await post<{
-          data: { user: LocalUser | null };
-          error: { message: string } | null;
-        }>("/api/local/auth", {
-          action: "register",
-          email: input.email,
-          password: input.password,
-          options: input.options,
-        });
-        return res;
-      },
       async signOut() {
         await post("/api/local/auth", { action: "logout" });
         notify("SIGNED_OUT", null);

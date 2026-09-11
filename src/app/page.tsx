@@ -24,9 +24,6 @@ export default function Home() {
           <Link href="/login">
             <Button variant="ghost">Log in</Button>
           </Link>
-          <Link href="/signup">
-            <Button>Sign up</Button>
-          </Link>
         </div>
       </header>
 
@@ -46,11 +43,8 @@ export default function Home() {
             needs in one secure platform.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
-            <Link href="/signup">
-              <Button size="lg" className="h-12 px-8">Get Started</Button>
-            </Link>
             <Link href="/login">
-              <Button size="lg" variant="outline" className="h-12 px-8">Log In</Button>
+              <Button size="lg" className="h-12 px-8">Log In</Button>
             </Link>
           </div>
         </div>

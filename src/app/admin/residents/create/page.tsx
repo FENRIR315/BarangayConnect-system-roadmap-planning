@@ -25,11 +25,17 @@ export default function CreateResidentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanDocs, setScanDocs] = useState<string[]>([]);
+  const [createAccount, setCreateAccount] = useState(false);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
+  const [accountConfirm, setAccountConfirm] = useState("");
+  const [accountMsg, setAccountMsg] = useState<string | null>(null);
   const supabase = createClient();
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<ResidentForm>({
     resolver: zodResolver(residentSchema),
@@ -41,6 +47,24 @@ export default function CreateResidentPage() {
   const onSubmit = async (data: ResidentForm) => {
     setLoading(true);
     setError(null);
+
+    if (createAccount) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim())) {
+        setError("Enter a valid email for the resident's login account.");
+        setLoading(false);
+        return;
+      }
+      if (accountPassword.length < 8) {
+        setError("Password must be at least 8 characters.");
+        setLoading(false);
+        return;
+      }
+      if (accountPassword !== accountConfirm) {
+        setError("Passwords do not match.");
+        setLoading(false);
+        return;
+      }
+    }
 
     const { data: resident, error: insertError } = await supabase
       .from("residents")
@@ -55,7 +79,7 @@ export default function CreateResidentPage() {
         address: data.address,
         purok: data.purok,
         contact_number: data.contact_number || null,
-        email: data.email || null,
+        email: createAccount ? accountEmail.trim() : (data.email || null),
         occupation: data.occupation || null,
         voter_status: data.voter_status || null,
         residency_status: data.residency_status || "active",
@@ -90,6 +114,26 @@ export default function CreateResidentPage() {
       await supabase.from("resident_documents").insert(docRows);
     }
 
+    if (createAccount) {
+      const resp = await fetch("/api/local/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create-account",
+          email: accountEmail.trim(),
+          password: accountPassword,
+          resident_id: resident.id,
+        }),
+      });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setError(body?.error?.message ?? "Login account creation failed. The resident record was saved — retry from the resident page.");
+        setLoading(false);
+        return;
+      }
+      setAccountMsg(`Login account created for ${accountEmail.trim()}. Give these credentials to the resident.`);
+    }
+
     setLoading(false);
     router.push(`/admin/residents/${resident.id}`);
     router.refresh();
@@ -111,6 +155,10 @@ export default function CreateResidentPage() {
 
       {error && (
         <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
+      )}
+
+      {accountMsg && (
+        <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">{accountMsg}</div>
       )}
 
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -250,6 +298,74 @@ export default function CreateResidentPage() {
             </CardContent>
           </Card>
 
+          {/* Login Account */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Login Account</CardTitle>
+              <p className="text-sm text-gray-500">
+                Like a school issuing student accounts: the barangay creates the resident&apos;s login, so no email
+                verification is needed.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={createAccount}
+                  onChange={(e) => {
+                    setCreateAccount(e.target.checked);
+                    if (e.target.checked && !accountEmail) setAccountEmail(watch("email") ?? "");
+                  }}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Create a login account for this resident
+                </span>
+              </label>
+
+              {createAccount && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="account_email">Account Email *</Label>
+                    <Input
+                      id="account_email"
+                      type="email"
+                      placeholder="resident@example.com"
+                      value={accountEmail}
+                      onChange={(e) => setAccountEmail(e.target.value)}
+                    />
+                    <p className="text-xs text-gray-500">This is the email the resident will use to sign in.</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="account_password">Password *</Label>
+                      <Input
+                        id="account_password"
+                        type="password"
+                        placeholder="At least 8 characters"
+                        value={accountPassword}
+                        onChange={(e) => setAccountPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="account_confirm">Confirm Password *</Label>
+                      <Input
+                        id="account_confirm"
+                        type="password"
+                        placeholder="Repeat the password"
+                        value={accountConfirm}
+                        onChange={(e) => setAccountConfirm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-sm text-amber-700">
+                    Note them down now — the resident will use these credentials to sign in at the portal.
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Scanned Documents */}
           <Card>
             <CardHeader>
@@ -277,7 +393,7 @@ export default function CreateResidentPage() {
             </Link>
             <Button type="submit" disabled={loading}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              {loading ? "Saving..." : "Save Resident"}
+              {loading ? "Saving..." : createAccount ? "Save Resident & Create Account" : "Save Resident"}
             </Button>
           </div>
         </div>

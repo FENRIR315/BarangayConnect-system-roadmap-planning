@@ -3,7 +3,6 @@ import { SESSION_COOKIE, lookupSession } from "@/lib/auth";
 
 const publicPaths = [
   "/login",
-  "/signup",
   "/reset-password",
   "/verify",
   "/api",
@@ -32,7 +31,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  if (user && pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = user.role === "resident" ? "/resident/dashboard" : "/admin/dashboard";
     return NextResponse.redirect(url);

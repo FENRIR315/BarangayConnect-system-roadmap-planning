@@ -90,7 +90,7 @@ def add_bullets(slide, x, y, w, h, bullets, size=18, color=DARK,
         run.font.name = "Calibri"
     return box
 
-def content_slide(title, subtitle=None):
+def content_slide(title, subtitle=None, number=None):
     """Standard content slide: navy header band + cream body."""
     slide = prs.slides.add_slide(BLANK)
     add_rect(slide, 0, 0, SLIDE_W, Inches(1.35), NAVY)
@@ -106,6 +106,11 @@ def content_slide(title, subtitle=None):
     add_text(slide, SLIDE_W - Inches(1.05), 0, Inches(1.05), Inches(0.42),
              "BC", size=14, color=NAVY, bold=True,
              align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    # slide number
+    if number:
+        add_text(slide, SLIDE_W - Inches(1.05), Inches(7.08), Inches(1.05), Inches(0.4),
+                 str(number), size=12, color=MUTED,
+                 align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
     return slide
 
 def card(slide, x, y, w, h, title, text, accent=GOLD):
@@ -152,22 +157,23 @@ title_slide(
 )
 
 # 2. The Problem
-s = content_slide("The Problem", "Why change is needed")
+s = content_slide("The Problem", "Why change is needed", number=2)
 add_bullets(s, Inches(0.8), Inches(1.95), Inches(11.7), Inches(5.0), [
     ("Manual, paper-based processes slow down everyday barangay work", True),
     ("Document requests are hard to track and take days to process", False),
     ("Resident records are scattered across notebooks, logs, and files", False),
     ("Complaints and incidents are hard to monitor and resolve on time", False),
     ("Residents have limited visibility into barangay services", False),
-], size=20, spacing=22)
+    ("Cloud systems create recurring subscription and internet costs", False),
+], size=20, spacing=20)
 
 # 3. The Solution
-s = content_slide("The Solution", "What BarangayConnect delivers")
+s = content_slide("The Solution", "What BarangayConnect delivers", number=3)
 sol_cols = [
     ("One Platform", "Full-stack web system built end-to-end for barangay operations."),
     ("All Operations", "Residents, documents, appointments, complaints, incidents, payments and announcements in one place."),
-    ("White-Label Ready", "Client-presentable, customizable per-barangay branding."),
-    ("Secure by Design", "Role-based access, row-level security and full audit trails."),
+    ("Owned Locally", "Runs on the barangay computer - no subscription, no monthly cloud fees."),
+    ("Secure by Design", "Role-based access, database-level access control and full audit trails."),
 ]
 cw, chh, gap = 914400 * 5.55, 914400 * 2.15, 914400 * 0.6
 positions = [
@@ -180,7 +186,7 @@ for (t, d), (x, y) in zip(sol_cols, positions):
     card(s, x, y, cw, chh, t, d)
 
 # 4. Admin Portal Features
-s = content_slide("Admin Portal Features", "Governance tools for Barangay officials")
+s = content_slide("Admin Portal Features", "Governance tools for Barangay officials", number=4)
 cols = [
     ("Dashboard & Analytics", "Population stats: age group, sex, purok. Recent requests at a glance."),
     ("Residents & Households", "Full CRUD, search, filter, deactivate. Scan & attach documents and photos."),
@@ -201,7 +207,7 @@ for (t, d), (x, y) in zip(cols, pos):
     card(s, x, y, Inches(5.8), Inches(1.0), t, d)
 
 # 5. Resident Portal
-s = content_slide("Resident Portal", "Self-service for every resident")
+s = content_slide("Resident Portal", "Self-service for every resident", number=5)
 res_cols = [
     ("Profile", "Self-service personal information management."),
     ("Documents", "Request & track barangay certificates online."),
@@ -217,13 +223,31 @@ pos2 = [
 for (t, d), (x, y) in zip(res_cols, pos2):
     card(s, x, y, Inches(3.6), Inches(2.1), t, d)
 
-# 6. Security
-s = content_slide("Security & Access Control", "Data you can trust")
+# 6. System Architecture (On-Premises)
+s = content_slide("On-Premises Architecture", "Runs on the barangay computer", number=6)
+arch_items = [
+    ("Web Application", "Next.js on port 3000 - staff use localhost / LAN, residents reach it online."),
+    ("Local Database", "PostgreSQL 17 on the barangay computer with an application-level access layer."),
+    ("Automatic Backups", "Daily .dump snapshots kept for 14 days, one-click restore."),
+    ("Watchdog & Health", "Every-5-min monitoring auto-restarts any failed part. Live status page."),
+    ("Public Browsing", "Free Cloudflare tunnel to publish the resident portal - no account or domain needed."),
+    ("No Cloud, No Fee", "No subscription, no data leaves the barangay office - data stays fully owned."),
+]
+pos_arch = [
+    (Inches(0.8), Inches(1.7)), (Inches(6.9), Inches(1.7)),
+    (Inches(0.8), Inches(3.35)), (Inches(6.9), Inches(3.35)),
+    (Inches(0.8), Inches(5.0)), (Inches(6.9), Inches(5.0)),
+]
+for (t, d), (x, y) in zip(arch_items, pos_arch):
+    card(s, x, y, Inches(5.6), Inches(1.35), t, d)
+
+# 7. Security
+s = content_slide("Security & Access Control", "Data you can trust", number=7)
 sec_items = [
     ("Role-Based Access Control", "Six roles: Captain, Secretary, Treasurer, Kagawad, Staff, Resident."),
-    ("Row-Level Security", "Database RLS policies protect every table and record."),
-    ("Audit Logging", "Administrative activity trail, server-side only."),
-    ("Secure Storage", "Protected buckets for documents and photos with file validation."),
+    ("Database Access Layer", "Residents can only reach their own rows - other records are unreachable."),
+    ("Audit Logging", "Administrative activity trail, maintained server-side only."),
+    ("Login Protection", "Five failed attempts lock the account for 15 minutes. Factory passwords refused."),
 ]
 pos3 = [
     (Inches(0.8), Inches(1.7)), (Inches(6.9), Inches(1.7)),
@@ -237,18 +261,18 @@ add_text(s, Inches(4.0), Inches(5.2), Inches(5.3), Inches(0.5),
          "DEFENSE IN DEPTH", size=18, color=GOLD, bold=True,
          align=PP_ALIGN.CENTER)
 add_text(s, Inches(4.4), Inches(5.8), Inches(4.5), Inches(0.9),
-         "Public QR verification for issued certificates, secure uploads,\nand scoped resident data access.",
+         "Public QR verification for issued certificates, upload validation,\nand strict per-resident data scoping.",
          size=14, color=WHITE, align=PP_ALIGN.CENTER)
 
-# 7. Tech Stack
-s = content_slide("Tech Stack", "Modern, proven technology")
+# 8. Tech Stack
+s = content_slide("Tech Stack", "Modern, proven technology", number=8)
 tech_items = [
     ("Frontend", "Next.js 16 \u00B7 TypeScript \u00B7 Tailwind CSS v4"),
     ("UI & Charts", "Radix UI \u00B7 Lucide Icons \u00B7 Recharts"),
-    ("Auth & Security", "Supabase Auth \u00B7 Row-Level Security \u00B7 RBAC"),
-    ("Database", "Supabase PostgreSQL with full RLS"),
+    ("Auth & Sessions", "Custom session auth \u00B7 bcrypt password hashing \u00B7 lockout"),
+    ("Database", "Local PostgreSQL 17 (pg) \u00B7 app-level access control"),
     ("PDF & Documents", "React-PDF \u00B7 jsPDF + autotable"),
-    ("Excel Export", "SheetJS (xlsx) \u00B7 Export All workbooks"),
+    ("Excel & Automation", "SheetJS (xlsx) \u00B7 Scheduled backups \u00B7 watchdog"),
 ]
 pos4 = [
     (Inches(0.8), Inches(1.75)), (Inches(6.9), Inches(1.75)),
@@ -258,12 +282,15 @@ pos4 = [
 for (t, d), (x, y) in zip(tech_items, pos4):
     card(s, x, y, Inches(5.6), Inches(1.4), t, d)
 
-# 8. Closing
+# 9. Closing
 s = title_slide(
     "BarangayConnect",
     "Building Smarter, More Connected Communities\nThank You for Your Attention",
     footer="BarangayConnect \u00B7 Digital Governance, Made Simple",
 )
 
-prs.save("BarangayConnect_Presentation.pptx")
+import os
+
+prs.save("BarangayConnect_Presentation.pptx.tmp")
+os.replace("BarangayConnect_Presentation.pptx.tmp", "BarangayConnect_Presentation.pptx")
 print("Presentation saved: BarangayConnect_Presentation.pptx")

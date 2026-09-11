@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import {
   SESSION_COOKIE,
   createSession,
+  currentUser,
   deleteSession,
   findUserByEmail,
   lookupSession,
@@ -148,30 +149,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: null, error: null });
     }
 
-    case "register": {
-      const { email, password } = body;
-      const meta = (body.options?.data ?? {}) as Record<string, unknown>;
-      const existing = await findUserByEmail(email ?? "");
-      if (existing) {
+    case "create-account": {
+      // Barangay-staff-only: creates a resident login directly (no self signup,
+      // no email verification - like a school issuing student accounts).
+      const actor = await currentUser();
+      if (!actor || actor.role === "resident") {
         return NextResponse.json(
-          { data: { user: null }, error: { message: "User already registered" } },
+          { data: { user: null }, error: { message: "Only barangay staff can create resident accounts." } },
+          { status: 403 }
+        );
+      }
+
+      const { email, password, resident_id } = body;
+      const emailClean = String(email ?? "").trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) {
+        return NextResponse.json(
+          { data: { user: null }, error: { message: "A valid email address is required." } },
+          { status: 400 }
+        );
+      }
+
+      const pw = String(password ?? "");
+      if (pw.length < 8) {
+        return NextResponse.json(
+          { data: { user: null }, error: { message: "Password must be at least 8 characters." } },
+          { status: 400 }
+        );
+      }
+      if (DEFAULT_PASSWORDS.has(pw)) {
+        return NextResponse.json(
+          { data: { user: null }, error: { message: "That password is reserved. Please choose a different one." } },
+          { status: 400 }
+        );
+      }
+      if (await findUserByEmail(emailClean)) {
+        return NextResponse.json(
+          { data: { user: null }, error: { message: "A user with that email already exists." } },
           { status: 409 }
         );
       }
-      const hash = await hashPassword(password ?? "");
-      const values = {
-        email,
-        role: "resident",
-        first_name: meta.first_name ?? null,
-        last_name: meta.last_name ?? null,
-        phone: meta.phone ?? null,
-        password_hash: hash,
-        email_verified: true,
-      };
+
+      let rrow: Record<string, unknown> | null = null;
+      if (resident_id) {
+        const rr = await pool.query(
+          `select first_name, last_name from public.residents where id = $1`,
+          [resident_id]
+        );
+        rrow = rr.rows[0] as Record<string, unknown> | undefined ?? null;
+      }
+
+      const hash = await hashPassword(pw);
       const result = await runQuery({
         table: "users",
         verb: "insert",
-        values,
+        values: {
+          email: emailClean,
+          role: "resident",
+          first_name: rrow?.first_name ?? null,
+          last_name: rrow?.last_name ?? null,
+          password_hash: hash,
+          email_verified: true,
+        },
       } as Query);
       if (result.error) {
         return NextResponse.json(
@@ -179,9 +217,25 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      const row = (result.data as Array<Record<string, unknown>>)[0] ?? {};
+      const created = (result.data as Array<Record<string, unknown>>)[0] ?? {};
+
+      if (resident_id && created.id) {
+        await pool.query(
+          `update public.residents set user_id = $1, email = $2 where id = $3`,
+          [created.id, emailClean, resident_id]
+        );
+        await pool.query(
+          `insert into public.audit_logs (action, module, record_id, new_values)
+           values ('user_account_created', 'residents', $1, $2)`,
+          [String(resident_id), { email: emailClean, role: "resident" }]
+        );
+      }
+
       return NextResponse.json({
-        data: { user: { id: row.id, email: row.email, user_metadata: { role: "resident" }, app_metadata: {} } },
+        data: {
+          user: { id: created.id, email: created.email, user_metadata: { role: "resident" }, app_metadata: {} },
+          linked: !!resident_id,
+        },
         error: null,
       });
     }

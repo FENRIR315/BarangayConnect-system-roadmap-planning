@@ -64,7 +64,8 @@ function LoginForm() {
     });
 
     if (error) {
-      setError(error.message === "Invalid login credentials" ? "Invalid email or password." : "Unable to login. Please try again.");
+      const msg = error.message ?? "";
+      setError(msg === "Invalid login credentials" ? "Invalid email or password." : msg || "Unable to login. Please try again.");
       setLoading(false);
       return;
     }
@@ -161,10 +162,7 @@ function LoginForm() {
       </form>
 
       <p className="mt-6 text-center text-sm text-gray-500">
-        Don&apos;t have an account?{" "}
-        <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-700">
-          Sign up
-        </Link>
+        Account provided by the barangay office? Sign in with the credentials they gave you.
       </p>
     </div>
   );

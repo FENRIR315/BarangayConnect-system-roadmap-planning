@@ -11,6 +11,7 @@ export interface SessionUser {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  email_verified: boolean;
 }
 
 export function toAuthUser(u: SessionUser) {
@@ -35,7 +36,7 @@ export function toPublicProfile(u: SessionUser) {
 
 export async function findUserByEmail(email: string): Promise<SessionUser | null> {
   const r = await pool.query(
-    `select id, email, role, first_name, last_name, avatar_url, password_hash
+    `select id, email, role, first_name, last_name, avatar_url, password_hash, email_verified
      from public.users where lower(email) = lower($1)`,
     [email]
   );
@@ -44,7 +45,7 @@ export async function findUserByEmail(email: string): Promise<SessionUser | null
 
 export async function findUserById(id: string): Promise<SessionUser | null> {
   const r = await pool.query(
-    `select id, email, role, first_name, last_name, avatar_url
+    `select id, email, role, first_name, last_name, avatar_url, email_verified
      from public.users where id = $1`,
     [id]
   );
@@ -53,7 +54,7 @@ export async function findUserById(id: string): Promise<SessionUser | null> {
 
 export async function verifyPassword(email: string, password: string): Promise<SessionUser | null> {
   const r = await pool.query(
-    `select id, email, role, first_name, last_name, avatar_url
+    `select id, email, role, first_name, last_name, avatar_url, email_verified
      from public.users
      where lower(email) = lower($1) and password_hash is not null and password_hash = crypt($2, password_hash)`,
     [email, password]

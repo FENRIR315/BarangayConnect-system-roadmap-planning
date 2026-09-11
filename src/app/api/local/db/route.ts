@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { runQuery, type Query } from "@/lib/local/sql";
 import { currentUser } from "@/lib/auth";
 import { authorizeQuery } from "@/lib/local/dbacl";
+import { dispatchAfterWrite } from "@/lib/notify";
+import { sendPendingEmails } from "@/lib/mail";
 
 export const runtime = "nodejs";
 
@@ -35,6 +37,11 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await runQuery(acl.query!);
+  if (!result.error && q.verb !== "select") {
+    // Side effects: in-app notifications + queued emails for key tables.
+    void dispatchAfterWrite(q, result.data).catch((e) => console.error("[db] dispatch failed", e));
+    void sendPendingEmails({ limit: 10 }).catch((e) => console.error("[db] email drain failed", e));
+  }
   const status = result.error ? (result.error.code === "23505" ? 409 : 500) : 200;
   return NextResponse.json(result, { status });
 }
