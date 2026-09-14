@@ -16,6 +16,7 @@ import {
   Crown,
   ScrollText,
   Settings,
+  ShieldCheck,
   LogOut,
   Building2,
   Menu,
@@ -26,8 +27,9 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import type { LucideIcon } from "lucide-react";
 
-const navItems = [
+const navItems: { label: string; href: string; icon: LucideIcon; captainOnly?: boolean }[] = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Residents", href: "/admin/residents", icon: Users },
   { label: "Households", href: "/admin/households", icon: Home },
@@ -39,6 +41,7 @@ const navItems = [
   { label: "Payments", href: "/admin/payments", icon: DollarSign },
   { label: "Reports", href: "/admin/reports", icon: BarChart3 },
   { label: "Officials", href: "/admin/officials", icon: Crown },
+  { label: "Accounts", href: "/admin/accounts", icon: ShieldCheck, captainOnly: true },
   { label: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
@@ -73,6 +76,7 @@ export default function AdminSidebar() {
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {navItems.map((item) => {
+          if (item.captainOnly && profile?.role !== "captain") return null;
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link

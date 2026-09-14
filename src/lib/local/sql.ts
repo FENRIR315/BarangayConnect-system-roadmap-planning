@@ -211,12 +211,16 @@ async function runSelect(q: Query): Promise<DbResult> {
     ? " ORDER BY " + allowedOrders.map((o) => `"t0"."${o.column}" ${o.asc ? "ASC" : "DESC"} NULLS LAST`).join(", ")
     : "";
 
+  // Hard cap: the generic endpoint never returns more than MAX_ROWS at a
+  // time (defense in depth; the route also clamps limit/range before this).
+  const MAX_ROWS = 1000;
   let limitSql = "";
   if (q.range) {
     const [from, to] = q.range;
-    limitSql = ` LIMIT ${to - from + 1} OFFSET ${from}`;
+    const span = Math.min(Math.max(to - from + 1, 0), MAX_ROWS);
+    limitSql = ` LIMIT ${span} OFFSET ${Math.max(from, 0)}`;
   } else if (q.limit != null) {
-    limitSql = ` LIMIT ${q.limit}`;
+    limitSql = ` LIMIT ${Math.min(Math.max(q.limit, 0), MAX_ROWS)}`;
   }
 
   const sql = `SELECT ${selectParts.join(", ")}${

@@ -64,9 +64,18 @@ export async function GET(
 
   try {
     const buf = await fs.readFile(target);
-    return new NextResponse(new Uint8Array(buf), {
-      headers: { "Content-Type": contentTypeOf(target) },
-    });
+    const contentType = contentTypeOf(target);
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "private, max-age=3600",
+    };
+    // Serve non-image files (e.g. PDFs) as downloads so they are not rendered
+    // inline in the browser (avoids stored-XSS/polyglot preview issues).
+    if (!contentType.startsWith("image/")) {
+      headers["Content-Disposition"] = `attachment; filename="${path.basename(target).replace(/"/g, "")}"`;
+    }
+    return new NextResponse(new Uint8Array(buf), { headers });
   } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

@@ -2,10 +2,9 @@ import { Pool } from "pg";
 import type { QueryResult } from "pg";
 
 // PostgreSQL pool. The barangay computer points DATABASE_URL at its own
-// local PostgreSQL instance; when absent we fall back to a dev connection.
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres.jqrhmqcjxrxhdgjzkpdy:5oJUvupMkopIfdZp@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres";
+// local PostgreSQL instance. There is deliberately no embedded fallback
+// credential here.
+const connectionString = process.env.DATABASE_URL;
 
 export const pool = new Pool({
   connectionString,

@@ -34,9 +34,32 @@ export function toPublicProfile(u: SessionUser) {
   };
 }
 
+/**
+ * Authenticate via the database. Password verification and session minting
+ * happen inside the SECURITY DEFINER function public.brgy_login, which only
+ * exposes granted columns back to the app role.
+ * Returns { user, sessionId } or null on invalid credentials.
+ */
+export async function brgyLogin(
+  email: string,
+  password: string
+): Promise<{ user: SessionUser; sessionId: string } | null> {
+  const r = await pool.query(
+    `select id, email, role, first_name, last_name, avatar_url, email_verified, session_id
+     from public.brgy_login($1, $2)`,
+    [email, password]
+  );
+  const row = r.rows[0] as
+    | (SessionUser & { session_id: string })
+    | undefined;
+  if (!row) return null;
+  const { session_id, ...user } = row;
+  return { user, sessionId: session_id };
+}
+
 export async function findUserByEmail(email: string): Promise<SessionUser | null> {
   const r = await pool.query(
-    `select id, email, role, first_name, last_name, avatar_url, password_hash, email_verified
+    `select id, email, role, first_name, last_name, avatar_url, email_verified
      from public.users where lower(email) = lower($1)`,
     [email]
   );
@@ -52,50 +75,24 @@ export async function findUserById(id: string): Promise<SessionUser | null> {
   return (r.rows[0] as SessionUser | undefined) ?? null;
 }
 
-export async function verifyPassword(email: string, password: string): Promise<SessionUser | null> {
-  const r = await pool.query(
-    `select id, email, role, first_name, last_name, avatar_url, email_verified
-     from public.users
-     where lower(email) = lower($1) and password_hash is not null and password_hash = crypt($2, password_hash)`,
-    [email, password]
-  );
-  return (r.rows[0] as SessionUser | undefined) ?? null;
-}
-
-export async function hashPassword(password: string): Promise<string> {
-  const r = await pool.query(`select crypt($1, gen_salt('bf')) as h`, [password]);
-  return (r.rows[0] as { h: string }).h;
-}
-
-export async function createSession(userId: string): Promise<string> {
-  const r = await pool.query(
-    `insert into public.sessions (user_id, expires_at, last_seen_at)
-     values ($1, now() + ($2 || ' days')::interval, now())
-     returning id`,
-    [userId, SESSION_DAYS]
-  );
-  return (r.rows[0] as { id: string }).id;
-}
-
 export async function deleteSession(sessionId: string): Promise<void> {
-  await pool.query(`delete from public.sessions where id = $1`, [sessionId]);
+  await pool.query(`select public.brgy_session_delete($1)`, [sessionId]);
 }
 
+/**
+ * Resolve a session token through public.brgy_session_lookup (definer-owned):
+ * it validates expiry, slides last_seen_at, and joins the CURRENT users row so
+ * role changes take effect immediately.
+ */
 export async function lookupSession(sessionId: string): Promise<SessionUser | null> {
   if (!sessionId) return null;
   const r = await pool.query(
-    `select u.id, u.email, u.role, u.first_name, u.last_name, u.avatar_url
-     from public.sessions s
-     join public.users u on u.id = s.user_id
-     where s.id = $1 and s.expires_at > now()`,
+    `select id, email, role, first_name, last_name, avatar_url, email_verified
+     from public.brgy_session_lookup($1)`,
     [sessionId]
   );
-  if (r.rows.length === 0) return null;
-  await pool.query(
-    `update public.sessions set last_seen_at = now() where id = $1`,
-    [sessionId]
-  );
-  return r.rows[0] as SessionUser;
+  const row = r.rows[0] as SessionUser | undefined;
+  return row ?? null;
 }
 
 export async function currentUser(): Promise<SessionUser | null> {

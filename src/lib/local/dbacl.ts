@@ -8,9 +8,15 @@ import { parseSelect, type Query } from "@/lib/local/sql";
  * Roles:
  *  - anon:  read-only, only `documents` (single verified row, safe columns) and
  *           `barangay_settings`.
- *  - resident: reads/writes scoped to THEIR OWN rows; sensitive tables blocked.
- *  - staff (everything else): full access, but `password_hash` / `sessions`
- *           are never reachable through this endpoint.
+ *  - resident: reads/writes scoped to THEIR OWN rows; sensitive tables blocked;
+ *              writes must use only allowlisted columns.
+ *  - staff (everything else): full access to business data, but `users`,
+ *           `sessions`, `login_attempts` are never writable through this
+ *           endpoint and audit-logs inserts are column-restricted.
+ *
+ * The database layer enforces the same limits at the privilege level
+ * (column grants + SECURITY DEFINER functions); this module returns clean
+ * 403s before SQL is ever built and adds ownership scoping for residents.
  *
  * Returns either an error to short-circuit, or a possibly-rewritten Query.
  */
@@ -32,7 +38,7 @@ const OWNER_BY_TABLE: Record<string, "user_id" | "resident_id"> = {
   notifications: "user_id",
 };
 
-// Tables residents may READ (and write, see RESIDENT_WRITE_TABLES below).
+// Tables residents may READ.
 const RESIDENT_READ_TABLES = new Set([
   ...Object.keys(OWNER_BY_TABLE),
   "announcements",
@@ -42,7 +48,7 @@ const RESIDENT_READ_TABLES = new Set([
   "document_types",
 ]);
 
-// Tables residents may INSERT / UPDATE / DELETE on (still owner-scoped).
+// Tables residents may INSERT on (still owner-scoped + column-allowlisted).
 const RESIDENT_WRITE_TABLES = new Set([
   "appointments",
   "complaints",
@@ -52,7 +58,83 @@ const RESIDENT_WRITE_TABLES = new Set([
 ]);
 
 // Tables nobody can reach through this generic endpoint regardless of role.
-const BLOCKED_TABLES = new Set(["sessions", "audit_logs"]);
+const BLOCKED_TABLES = new Set(["sessions", "login_attempts"]);
+
+// Residents may UPDATE `residents` (their own profile) but never INSERT/DELETE.
+const RESIDENT_UPDATE_TABLES = new Set(["residents"]);
+
+// Exact columns residents may INSERT per table. The owner column (user_id /
+// resident_id) is NOT listed: the server injects and enforces it.
+const RESIDENT_INSERT_COLUMNS: Record<string, Set<string>> = {
+  appointments: new Set([
+    "appointment_number",
+    "service_id",
+    "scheduled_date",
+    "scheduled_time",
+    "purpose",
+    "status",
+    "remarks",
+  ]),
+  complaints: new Set([
+    "complaint_number",
+    "complaint_type_id",
+    "description",
+    "location",
+    "date_of_incident",
+    "time_of_incident",
+    "status",
+    "evidence_urls",
+  ]),
+  document_requests: new Set([
+    "request_number",
+    "document_type_id",
+    "purpose",
+    "status",
+    "payment_status",
+    "remarks",
+  ]),
+  notifications: new Set(["title", "message", "type", "link", "is_read"]),
+  resident_documents: new Set([
+    "title",
+    "category",
+    "file_url",
+    "mime_type",
+    "file_size",
+    "uploaded_by",
+  ]),
+};
+
+// Exact columns residents may UPDATE per table.
+const RESIDENT_UPDATE_COLUMNS: Record<string, Set<string>> = {
+  residents: new Set([
+    "first_name",
+    "middle_name",
+    "last_name",
+    "suffix",
+    "dob",
+    "sex",
+    "civil_status",
+    "address",
+    "purok",
+    "contact_number",
+    "occupation",
+    "emergency_contact_name",
+    "emergency_contact_phone",
+  ]),
+  notifications: new Set(["is_read"]),
+};
+
+// Columns staff may insert into audit_logs. user_id / ip_address are set by
+// the server route from the live session, never accepted from the client.
+const STAFF_AUDIT_INSERT_COLUMNS = new Set([
+  "action",
+  "module",
+  "record_id",
+  "before_values",
+  "old_values",
+  "new_values",
+  "details",
+]);
 
 // Anonymous access.
 const ANON_READ_TABLES = new Set(["documents", "barangay_settings"]);
@@ -73,10 +155,6 @@ const ANON_DOC_EMBEDS: Record<string, { table: string; columns: Set<string> }> =
 
 function forbidden(table: string, message: string) {
   return { error: { message: `${message} (table: ${table})` } };
-}
-
-function containsToken(list: string[], token: string): boolean {
-  return list.some((c) => c === token);
 }
 
 function validateAnonSelect(q: Query) {
@@ -101,6 +179,34 @@ function validateAnonSelect(q: Query) {
 
 function hasAllowedAnonFilter(q: Query): boolean {
   return q.filters.some((f) => f.type === "eq" && (f.column === "id" || f.column === "certificate_number"));
+}
+
+// Enforce that a values payload only contains allowlisted columns and pin the
+// ownership column on every row (batch inserts included).
+function validateWriteValues(
+  table: string,
+  values: unknown,
+  allowed: Set<string>,
+  ownerCol?: string,
+  ownerValue?: string
+): AclResult | null {
+  const rows = Array.isArray(values) ? values : [values];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") {
+      return forbidden(table, "Invalid write payload");
+    }
+    for (const k of Object.keys(row)) {
+      if (!allowed.has(k)) {
+        return forbidden(table, `Column "${k}" is not allowed on this table`);
+      }
+    }
+  }
+  if (ownerCol && ownerValue) {
+    for (const row of rows) {
+      (row as Record<string, unknown>)[ownerCol] = ownerValue;
+    }
+  }
+  return null;
 }
 
 export async function authorizeQuery(
@@ -133,6 +239,19 @@ export async function authorizeQuery(
 
   // ---- staff (non-resident) -------------------------------------------------
   if (role !== "resident") {
+    if (table === "users" && q.verb !== "select") {
+      return forbidden("users", "Account changes are made through the authorized office tools");
+    }
+    if (table === "audit_logs") {
+      if (q.verb === "update" || q.verb === "delete") {
+        return forbidden("audit_logs", "Audit logs are read-only except through audited inserts");
+      }
+      if (q.verb === "insert") {
+        return validateWriteValues(table, q.values, STAFF_AUDIT_INSERT_COLUMNS) ?? { query: q };
+      }
+      return { query: q };
+    }
+
     const flat = `${q.select ?? ""} ${q.filters.map((f) => `${f.column}`).join(" ")} ${(q.ors ?? []).join(" ")}`;
     if (flat.includes("password_hash")) {
       return forbidden("users", "Password hashes are not exposed through the API");
@@ -161,31 +280,37 @@ export async function authorizeQuery(
     return { query: q };
   }
 
-  // writes
-  if (!RESIDENT_WRITE_TABLES.has(table)) {
+  // ---- resident writes ----
+  const canInsert = RESIDENT_WRITE_TABLES.has(table) && q.verb === "insert";
+  const canUpdate = (RESIDENT_WRITE_TABLES.has(table) || RESIDENT_UPDATE_TABLES.has(table)) && q.verb === "update";
+  const canDelete = RESIDENT_WRITE_TABLES.has(table) && q.verb === "delete";
+  if (!canInsert && !canUpdate && !canDelete) {
     return forbidden(table, "You are not allowed to modify this data");
   }
+
   const ownerCol = OWNER_BY_TABLE[table];
   const id = await ownerIdFor(user, table);
   if (!id) return forbidden(table, "Your account is not linked to a resident record yet");
 
-  if (ownerCol === "user_id") {
-    q.filters = q.filters.filter((f) => !(f.type === "eq" && f.column === "user_id"));
-    q.filters.push({ type: "eq", column: "user_id", value: user.id });
-    if (q.values && typeof q.values === "object" && !Array.isArray(q.values)) {
-      (q.values as Record<string, unknown>)["user_id"] = user.id;
-    }
-  } else {
-    q.filters = q.filters.filter((f) => !(f.type === "eq" && f.column === "resident_id"));
-    q.filters.push({ type: "eq", column: "resident_id", value: id });
-    if (q.values && typeof q.values === "object" && !Array.isArray(q.values)) {
-      (q.values as Record<string, unknown>)["resident_id"] = id;
-    }
+  if (q.verb === "insert") {
+    const allowed = RESIDENT_INSERT_COLUMNS[table];
+    if (!allowed) return forbidden(table, "You are not allowed to insert into this table");
+    return validateWriteValues(table, q.values, allowed, ownerCol, id) ?? { query: q };
   }
 
-  // Inserts must not be able to set a foreign owner id even by overriding values:
-  // (filters on insert go into the VALUES? no - inserts build from values; the
-  //  forced values above already win because runQuery() gives values precedence.)
+  // update / delete
+  q.filters = q.filters.filter((f) => !(f.type === "eq" && f.column === ownerCol));
+  q.filters.push({ type: "eq", column: ownerCol, value: id });
+  if (q.verb === "update") {
+    const allowed = RESIDENT_UPDATE_COLUMNS[table];
+    if (!allowed) return forbidden(table, "You are not allowed to update this table");
+    if (q.values && typeof q.values === "object" && !Array.isArray(q.values)) {
+      for (const k of Object.keys(q.values)) {
+        if (!allowed.has(k)) return forbidden(table, `Column "${k}" is not allowed on this table`);
+      }
+      delete (q.values as Record<string, unknown>)[ownerCol];
+    }
+  }
 
   return { query: q };
 }

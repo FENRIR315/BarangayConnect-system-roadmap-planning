@@ -77,7 +77,13 @@ function LoginForm() {
       .single();
 
     const redirectTo = searchParams.get("redirectedFrom");
-    const go = redirectTo ?? (profile?.role === "resident" ? "/resident/dashboard" : "/admin/dashboard");
+    // Only follow redirects that stay inside this app (blocks open redirects
+    // and javascript:/external destinations).
+    const safeRedirect =
+      redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//") && !redirectTo.startsWith("/%5C")
+        ? redirectTo
+        : null;
+    const go = safeRedirect ?? (profile?.role === "resident" ? "/resident/dashboard" : "/admin/dashboard");
     setSplash({ name: profile?.first_name ?? null, go, role: profile?.role === "resident" ? "resident" : "admin" });
   };
 
